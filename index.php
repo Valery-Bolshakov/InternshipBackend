@@ -1,3 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <script src="js/jquery-3.6.0.js"></script>
+    <script src="js/filter.js"></script>
+</head>
+<body>
+
 <?php
 require 'vendor/autoload.php';
 
@@ -8,7 +21,9 @@ $excel = \PhpOffice\PhpSpreadsheet\IOFactory::load($file);; // подключи�
 $excel->setActiveSheetIndex(0); // получить данные из указанного листа
 
 $sheet = $excel->getActiveSheet();
-$i = 0;
+
+$i = 0; // счетчик колличества операций
+$j = 0; // счетчик колличества вставленных в бд позиций
 
 $host = 'localhost';
 $user = 'db';
@@ -19,10 +34,8 @@ $link = mysqli_connect($host, $user, $password, $db_name) or die(mysqli_error($l
 // 'or die' - это вывод ошибок sql
 mysqli_query($link, "SET NAMES 'utf8'"); // задаем кодировку(без этой строчки кирилица плохо отображается)
 
-//mysqli_close($link); // закрытие соединения
 
-
-// формирование html-кода с данными
+// формирование html-кода таблицы с данными
 $html = '<table border="1" cellpadding="0" cellspacing="0">';
 
 $html .= '<tr>';
@@ -40,6 +53,8 @@ foreach ($sheet->getRowIterator() as $row) {
     if (((string)$sheet->getCell("B$i") === 'Стоимость, руб') or
         ((string)$sheet->getCell("B$i") === 'Стоимость')) {
         continue;
+    } else {
+        $j++;
     }
     $html .= '<tr>';
     $cellIterator = $row->getCellIterator();
@@ -62,6 +77,13 @@ foreach ($sheet->getRowIterator() as $row) {
     $html .= '<td>' . $Country . '</td>';
     $html .= '<td>' . $Comment . '</td>';
 
+    $result_stock_1 += $In_stock_1;  // считаю общее колличество товаров на складах 1 и 2
+    $result_stock_2 += $In_stock_2;
+
+    $result_single += $single_cost;  // общая стоимость всех товаров розничной цены
+
+    $result_wholesale += $wholesale_cost;  // общая стоимость всех товаров оптовой цены
+
 
     $query = "
         INSERT INTO test (
@@ -83,30 +105,46 @@ foreach ($sheet->getRowIterator() as $row) {
             '$Comment'
         )";
 
-    //$result = mysqli_query($link, $query) or die(mysqli_error($link));  // формируем запрос к БД
+    //mysqli_query($link, $query) or die(mysqli_error($link));  // формируем запрос к БД
 
-//    foreach ($cellIterator as $cell) {
-//
-//        // значение текущей ячейки
-//        $value = $cell->getCalculatedValue();
-//
-//        // если дата, то преобразовать в формат PHP
-//        if (Date::isDateTime($cell)) {
-//            $value = date('d.m.Y', Date::excelToTimestamp($cell->getValue()));
-//        }
-//
-//        $html .= '<td>'.$value.'</td>';
-//    }
     $html .= '<tr>';
 }
 $html .= '</table>';
 
+// Вывести под таблицей среднюю стоимость розничной цены товара
+// $last_id = mysqli_insert_id($link);
+// echo $last_id, '<br>';
+
 mysqli_close($link); // закрытие соединения
+
+// 3. Вывести под таблицей общее количество товаров на Складе1 и на Складе2
+echo 'общее количество товаров на Складе1: ' . $result_stock_1 . '<br>';
+echo 'общее количество товаров на Складе2: ' . $result_stock_2 . '<br><br>';
+
+// 4. Вывести под таблицей среднюю стоимость розничной цены товара
+$single_average_cost = intdiv ($result_single, $j);  // средняя стоимость розничной цены товара
+echo 'средняя стоимость розничной цены товара: ' . $single_average_cost . '<br>';
+
+// 5. Вывести под таблицей среднюю стоимость оптовой цены товара
+$wholesale_average_cost = intdiv ($result_wholesale, $j);  // средняя стоимость розничной цены товара
+echo 'средняя стоимость оптовой цены товара: ' . $wholesale_average_cost . '<br>';
+
 
 // вывод данных
 echo $html;
+/*
 
-echo '<br><br> Hello';
+6. Выделить в таблице красным цветом самый дорогой товар (по рознице)
+7. Выделить в таблице зеленым цветом самый дешевый товар (по опту)
+*/
 
+echo '<br><br>';
 
+echo 'общее количество товаров на Складе1: ' . $result_stock_1 . '<br>';
+echo 'общее количество товаров на Складе2: ' . $result_stock_2 . '<br>';
+
+?>
+
+</body>
+</html>
 

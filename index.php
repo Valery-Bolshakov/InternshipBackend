@@ -35,6 +35,22 @@ $link = mysqli_connect($host, $user, $password, $db_name) or die(mysqli_error($l
 mysqli_query($link, "SET NAMES 'utf8'"); // задаем кодировку(без этой строчки кирилица плохо отображается)
 
 
+/*
+НАХОДИМ САМЫЙ ДОРОГОЙ И САМЫЙ ДЕШЕВЫЙ ТОВАР и присваиваем их переменным для дальнейших манипуляций
+6. Выделить в таблице красным цветом самый дорогой товар (по рознице) single_cost
+7. Выделить в таблице зеленым цветом самый дешевый товар (по опту) wholesale_cost
+*/
+$query_max = "SELECT MAX(single_cost) as max  FROM `test`";
+$result1 = mysqli_query($link, $query_max);
+for ($data1 = []; $row = mysqli_fetch_assoc($result1); $data1[] = $row) ;
+$result_max = (int)$data1[0]['max'];
+
+$query_min = "SELECT MIN(wholesale_cost) as min FROM `test`";
+$result2 = mysqli_query($link, $query_min);
+for ($data2 = []; $row = mysqli_fetch_assoc($result2); $data2[] = $row) ;
+$result_min = $data2[0]['min'];
+
+
 // формирование html-кода таблицы с данными
 $html = '<table border="1" cellpadding="0" cellspacing="0">';
 
@@ -56,7 +72,7 @@ foreach ($sheet->getRowIterator() as $row) {
     } else {
         $j++;
     }
-    $html .= '<tr>';
+
     $cellIterator = $row->getCellIterator();
     $single_cost = (float)(string)$sheet->getCell("B$i");
     $Name_of_product = (string)$sheet->getCell("A$i");
@@ -69,6 +85,17 @@ foreach ($sheet->getRowIterator() as $row) {
         $Comment = "Осталось мало!! Срочно докупите!!!";
     }
 
+    /* ФОРМИРУЕМ УСЛОВИЕ ДЛЯ:
+    6. Выделить в таблице красным цветом самый дорогой товар (по рознице)
+    7. Выделить в таблице зеленым цветом самый дешевый товар (по опту)
+    */
+    if ($result_max == (int)$single_cost) {
+        $html .= '<tr bgcolor="#dc143c">';
+    } elseif ($result_min == $wholesale_cost) {
+        $html .= '<tr bgcolor="#006400">';
+    } else {
+        $html .= '<tr>';
+    }
     $html .= '<td>' . $Name_of_product . '</td>';
     $html .= '<td>' . $single_cost . '</td>';
     $html .= '<td>' . $wholesale_cost . '</td>';
@@ -76,6 +103,7 @@ foreach ($sheet->getRowIterator() as $row) {
     $html .= '<td>' . $In_stock_2 . '</td>';
     $html .= '<td>' . $Country . '</td>';
     $html .= '<td>' . $Comment . '</td>';
+    $html .= '<tr>';
 
     $result_stock_1 += $In_stock_1;  // считаю общее колличество товаров на складах 1 и 2
     $result_stock_2 += $In_stock_2;
@@ -85,63 +113,53 @@ foreach ($sheet->getRowIterator() as $row) {
     $result_wholesale += $wholesale_cost;  // общая стоимость всех товаров оптовой цены
 
 
-    $query = "
-        INSERT INTO test (
-            Name_of_product, 
-            single_cost, 
-            wholesale_cost, 
-            In_stock_1, 
-            In_stock_2, 
-            Country, 
-            Comment
-        ) 
+    // формируем запрос к БД для заполнения полей
+    /*$query = "
+        INSERT INTO `test` (
+            `Name_of_product`,
+            `single_cost`,
+            `wholesale_cost`,
+            `In_stock_1`,
+            `In_stock_2`,
+            `Country`,
+            `Comment`
+        )
         VALUES (
-            '$Name_of_product', 
-            $single_cost, 
-            $wholesale_cost, 
-            $In_stock_1, 
-            $In_stock_2, 
-            '$Country', 
+            '$Name_of_product',
+            $single_cost,
+            $wholesale_cost,
+            $In_stock_1,
+            $In_stock_2,
+            '$Country',
             '$Comment'
-        )";
+        )";*/
+    //mysqli_query($link, $query) or die(mysqli_error($link));
 
-    //mysqli_query($link, $query) or die(mysqli_error($link));  // формируем запрос к БД
-
-    $html .= '<tr>';
 }
 $html .= '</table>';
 
-// Вывести под таблицей среднюю стоимость розничной цены товара
-// $last_id = mysqli_insert_id($link);
-// echo $last_id, '<br>';
-
 mysqli_close($link); // закрытие соединения
+
+//echo (int)$data1[0]['max'], '<br>';
+//echo $data2[0]['min'], '<br>';
+
+require_once 'test.php';
+
+// вывод данных
+echo $html;
+echo '<br><br>';
 
 // 3. Вывести под таблицей общее количество товаров на Складе1 и на Складе2
 echo 'общее количество товаров на Складе1: ' . $result_stock_1 . '<br>';
 echo 'общее количество товаров на Складе2: ' . $result_stock_2 . '<br><br>';
 
 // 4. Вывести под таблицей среднюю стоимость розничной цены товара
-$single_average_cost = intdiv ($result_single, $j);  // средняя стоимость розничной цены товара
+$single_average_cost = intdiv($result_single, $j);  // средняя стоимость розничной цены товара
 echo 'средняя стоимость розничной цены товара: ' . $single_average_cost . '<br>';
 
 // 5. Вывести под таблицей среднюю стоимость оптовой цены товара
-$wholesale_average_cost = intdiv ($result_wholesale, $j);  // средняя стоимость розничной цены товара
+$wholesale_average_cost = intdiv($result_wholesale, $j);  // средняя стоимость розничной цены товара
 echo 'средняя стоимость оптовой цены товара: ' . $wholesale_average_cost . '<br>';
-
-
-// вывод данных
-echo $html;
-/*
-
-6. Выделить в таблице красным цветом самый дорогой товар (по рознице)
-7. Выделить в таблице зеленым цветом самый дешевый товар (по опту)
-*/
-
-echo '<br><br>';
-
-echo 'общее количество товаров на Складе1: ' . $result_stock_1 . '<br>';
-echo 'общее количество товаров на Складе2: ' . $result_stock_2 . '<br>';
 
 ?>
 
